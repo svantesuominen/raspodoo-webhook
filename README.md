@@ -26,6 +26,8 @@ The project utilizes the Raspberry Pi GPIO headers. We use the **pigpio** librar
 | **Piezo Buzzer** | Red (Long Leg) | Pin 33 | **GPIO 13** | PWM Signal (+) |
 | | Black (Short Leg)| Pin 34 | - | Ground (-) |
 
+For a detailed reference on Raspberry Pi pins, see the [Seeed Studio GPIO Pinout Guide](https://www.seeedstudio.com/blog/2020/02/19/how-to-use-raspberry-pi-gpio-pins-python-tutorial/).
+
 ---
 
 ## Software Architecture
