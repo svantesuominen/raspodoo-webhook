@@ -22,7 +22,7 @@ The project utilizes the Raspberry Pi GPIO headers. We use the **pigpio** librar
 | :--- | :--- | :--- | :--- | :--- |
 | **Servo Motor** | Red | Pin 2 or 4 | - | 5V Power |
 | | Brown / Black | Pin 6 or 9 | - | Ground (GND) |
-| | Orange / Yellow | Pin 12 | **GPIO 18** | PWM Signal |
+| | Orange / Yellow / White | Pin 12 | **GPIO 18** | PWM Signal |
 | **Piezo Buzzer** | Red (Long Leg) | Pin 33 | **GPIO 13** | PWM Signal (+) |
 | | Black (Short Leg)| Pin 34 | - | Ground (-) |
 
