@@ -43,7 +43,7 @@ A lightweight Flask server listening on **port 5000**. It features several key e
 
 | Endpoint | Trigger Event | Logic / Action |
 | :--- | :--- | :--- |
-| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• > 50k€: 3 Rings <br>• > 10k€: 2 Rings <br>• Default: 1 Ring |
+| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€ (e.g., 35k€ = 3 Rings) |
 | `/piezo` | Invoices / Payments | Plays sounds based on `?sound=` parameter: <br>`coin`, `success`, `r2d2`, `alert`. |
 | `/display`| Generic Events | Logs messages to the terminal (OLED support coming soon). |
 | `/reset` | Maintenance | Forces the servo to the "Zero" (rest) position. |

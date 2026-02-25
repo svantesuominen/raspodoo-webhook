@@ -106,15 +106,13 @@ def servo_control():
     print(f"[SERVO] Kauppa: {summa} eur")
     
     viesti = ""
-    if summa > 50000:
-        soita_kelloa(3)
-        viesti = "Jättikauppa! (3x)"
-    elif summa > 10000:
-        soita_kelloa(2)
-        viesti = "Iso kauppa! (2x)"
+    if summa < 20000:
+        toistot = 1
     else:
-        soita_kelloa(1)
-        viesti = "Kauppa vahvistettu (1x)"
+        toistot = int(summa // 10000)
+    
+    soita_kelloa(toistot)
+    viesti = f"Kauppa vahvistettu ({toistot}x)"
         
     return f"Servo: {viesti}", 200
 
