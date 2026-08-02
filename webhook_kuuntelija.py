@@ -6,9 +6,12 @@ import random
 # --- LAITTEISTOASETUKSET ---
 # GPIO 18 (Fyysinen pinni 12) = Servo
 # GPIO 13 (Fyysinen pinni 33) = Piezo (Summeri)
+# GPIO 24 (Fyysinen pinni 18) = This Is Fine trigger
 SERVO_PIN = 18
 PIEZO_PIN = 13
-SERVO_FREQ = 50 
+THISISFINE_PIN = 24
+SERVO_FREQ = 50
+THISISFINE_PULSE_S = 0.4 
 
 # --- KALIBROINTI (Testattu toimivaksi) ---
 LEPO_ASENTO = 50000   # Ylhäällä
@@ -158,6 +161,14 @@ def paivita_naytto(teksti, summa=None):
         print(f">> Summa: {summa} EUR")
     print("--------------------------------")
 
+def laukaise_thisisfine():
+    """ Lähettää ~0.4s HIGH-pulssin This Is Fine -lelulle """
+    print("[THISISFINE] This is fine...")
+    pi.set_mode(THISISFINE_PIN, pigpio.OUTPUT)
+    pi.write(THISISFINE_PIN, 1)
+    time.sleep(THISISFINE_PULSE_S)
+    pi.write(THISISFINE_PIN, 0)
+
 # --- REITIT (ENDPOINTS) ---
 
 @app.route('/servo', methods=['POST'])
@@ -224,6 +235,12 @@ def reset_servo():
     pi.hardware_PWM(SERVO_PIN, 0, 0)
     return "Servo nollattu", 200
 
+@app.route('/thisisfine', methods=['POST'])
+def thisisfine_control():
+    request.get_json(silent=True)
+    laukaise_thisisfine()
+    return "This is fine", 200
+
 if __name__ == '__main__':
     if not pi.connected:
         print("VIRHE: Pigpio ei ole käynnissä! Aja 'sudo systemctl start pigpiod'.")
@@ -231,4 +248,6 @@ if __name__ == '__main__':
         # Alustus hiljaiseksi
         pi.hardware_PWM(SERVO_PIN, 0, 0)
         pi.hardware_PWM(PIEZO_PIN, 0, 0)
+        pi.set_mode(THISISFINE_PIN, pigpio.OUTPUT)
+        pi.write(THISISFINE_PIN, 0)
         app.run(host='0.0.0.0', port=5000)

@@ -9,6 +9,7 @@
 Raspodoo transforms digital transactions into physical celebrations. By listening to Odoo Webhooks, a Raspberry Pi interprets business data and drives hardware components:
 - **Visual/Mechanical:** A servo motor strikes a physical service bell.
 - **Audio:** A piezo buzzer plays 8-bit melodic sound effects.
+- **Meme hardware:** A "This Is Fine" dog toy triggered by a short GPIO pulse.
 
 ---
 
@@ -25,6 +26,8 @@ The project utilizes the Raspberry Pi GPIO headers. We use the **pigpio** librar
 | | Orange / Yellow / White | Pin 12 | **GPIO 18** | PWM Signal |
 | **Piezo Buzzer** | Red (Long Leg) | Pin 33 | **GPIO 13** | PWM Signal (+) |
 | | Black (Short Leg)| Pin 34 | - | Ground (-) |
+| **This Is Fine** | Trigger | Pin 18 | **GPIO 24** | ~0.4s HIGH pulse |
+| | GND | Pin 20 | - | Ground (-) |
 
 For a detailed reference on Raspberry Pi pins, see the [Seeed Studio GPIO Pinout Guide](https://www.seeedstudio.com/blog/2020/02/19/how-to-use-raspberry-pi-gpio-pins-python-tutorial/).
 
@@ -44,9 +47,10 @@ A lightweight Flask server listening on **port 5000**. It features several key e
 | Endpoint | Trigger Event | Logic / Action |
 | :--- | :--- | :--- |
 | `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€ (e.g., 35k€ = 3 Rings) |
-| `/piezo` | Invoices / Payments | Plays sounds based on `?sound=` parameter: <br>`coin`, `success`, `r2d2`, `alert`. |
+| `/piezo` | Invoices / Payments | Plays sounds based on `?sound=` parameter: <br>`coin`, `success`, `r2d2`, `alert`, `startup`, `birthday`, `startreck`, `imperial`. |
 | `/display`| Generic Events | Logs messages to the terminal (OLED support coming soon). |
 | `/reset` | Maintenance | Forces the servo to the "Zero" (rest) position. |
+| `/thisisfine` | Chaos / memes | Pulses GPIO 24 HIGH for ~0.4s to trigger the This Is Fine dog. |
 
 ### C. Ngrok Connectivity
 To expose the local Raspberry Pi server to the internet for Odoo webhooks:
@@ -80,6 +84,8 @@ Since Odoo's webhook payload is often rigid, we use **URL Parameters** to pass s
 *   **Scenario (New Sale):** Trigger on Sales Order confirmation.
     *   **URL:** `https://your-ngrok-url/servo`
     *   *The Pi will automatically parse the Odoo JSON body to determine the sale value.*
+*   **Scenario (This Is Fine):** Trigger when things are on fire (metaphorically).
+    *   **URL:** `https://your-ngrok-url/thisisfine`
 
 ---
 
@@ -105,4 +111,15 @@ pigs hp 18 50 50000
 
 # Play a short beep on Piezo
 pigs hp 13 1000 500000 && sleep 0.2 && pigs hp 13 0 0
+
+# Trigger This Is Fine dog (GPIO 24 pulse)
+pigs w 24 1 && sleep 0.4 && pigs w 24 0
 ```
+
+### Webhook smoke tests
+```bash
+# This Is Fine
+curl -X POST "https://your-ngrok-url/thisisfine" \
+  -H "Content-Type: application/json" -d '{}'
+```
+
