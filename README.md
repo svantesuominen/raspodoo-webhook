@@ -26,8 +26,8 @@ The project utilizes the Raspberry Pi GPIO headers. We use the **pigpio** librar
 | | Orange / Yellow / White | Pin 12 | **GPIO 18** | PWM Signal |
 | **Piezo Buzzer** | Red (Long Leg) | Pin 33 | **GPIO 13** | PWM Signal (+) |
 | | Black (Short Leg)| Pin 34 | - | Ground (-) |
-| **This Is Fine** | Trigger | Pin 18 | **GPIO 24** | ~0.4s HIGH pulse |
-| | GND | Pin 20 | - | Ground (-) |
+| **This Is Fine** | Purple (signal) | Pin 16 | **GPIO 23** | ~0.4s HIGH pulse |
+| | Blue (GND) | Pin 14 | - | Ground (-) |
 
 For a detailed reference on Raspberry Pi pins, see the [Seeed Studio GPIO Pinout Guide](https://www.seeedstudio.com/blog/2020/02/19/how-to-use-raspberry-pi-gpio-pins-python-tutorial/).
 
@@ -50,7 +50,7 @@ A lightweight Flask server listening on **port 5000**. It features several key e
 | `/piezo` | Invoices / Payments | Plays sounds based on `?sound=` parameter: <br>`coin`, `success`, `r2d2`, `alert`, `startup`, `birthday`, `startreck`, `imperial`. |
 | `/display`| Generic Events | Logs messages to the terminal (OLED support coming soon). |
 | `/reset` | Maintenance | Forces the servo to the "Zero" (rest) position. |
-| `/thisisfine` | Chaos / memes | Pulses GPIO 24 HIGH for ~0.4s to trigger the This Is Fine dog. |
+| `/thisisfine` | Chaos / memes | Pulses GPIO 23 HIGH for ~0.4s to trigger the This Is Fine dog. |
 
 ### C. Ngrok Connectivity
 To expose the local Raspberry Pi server to the internet for Odoo webhooks:
@@ -112,8 +112,8 @@ pigs hp 18 50 50000
 # Play a short beep on Piezo
 pigs hp 13 1000 500000 && sleep 0.2 && pigs hp 13 0 0
 
-# Trigger This Is Fine dog (GPIO 24 pulse)
-pigs w 24 1 && sleep 0.4 && pigs w 24 0
+# Trigger This Is Fine dog (GPIO 23 pulse)
+pigs w 23 1 && sleep 0.4 && pigs w 23 0
 ```
 
 ### Webhook smoke tests

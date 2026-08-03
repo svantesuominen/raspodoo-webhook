@@ -6,10 +6,10 @@ import random
 # --- LAITTEISTOASETUKSET ---
 # GPIO 18 (Fyysinen pinni 12) = Servo
 # GPIO 13 (Fyysinen pinni 33) = Piezo (Summeri)
-# GPIO 24 (Fyysinen pinni 18) = This Is Fine trigger
+# GPIO 23 (Fyysinen pinni 16) = This Is Fine trigger
 SERVO_PIN = 18
 PIEZO_PIN = 13
-THISISFINE_PIN = 24
+THISISFINE_PIN = 23
 SERVO_FREQ = 50
 THISISFINE_PULSE_S = 0.4 
 
@@ -169,6 +169,15 @@ def laukaise_thisisfine():
     time.sleep(THISISFINE_PULSE_S)
     pi.write(THISISFINE_PIN, 0)
 
+def kaynnistyssekvenssi():
+    """ Soittaa valmiussignaalin kun palvelu on käynnissä """
+    print("[BOOT] Käynnistyssekvenssi: gong + thisisfine + piezo")
+    soita_kelloa(1)
+    time.sleep(0.3)
+    laukaise_thisisfine()
+    time.sleep(0.3)
+    soita_melodia('startup')
+
 # --- REITIT (ENDPOINTS) ---
 
 @app.route('/servo', methods=['POST'])
@@ -250,4 +259,5 @@ if __name__ == '__main__':
         pi.hardware_PWM(PIEZO_PIN, 0, 0)
         pi.set_mode(THISISFINE_PIN, pigpio.OUTPUT)
         pi.write(THISISFINE_PIN, 0)
+        kaynnistyssekvenssi()
         app.run(host='0.0.0.0', port=5000)
