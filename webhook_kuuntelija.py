@@ -20,6 +20,21 @@ ISKU_ASENTO = 100000  # Alhaalla (lyönti)
 pi = pigpio.pi()
 app = Flask(__name__)
 
+# Browser soundboard (Cloudflare Pages / localhost) needs CORS + OPTIONS preflight.
+# Custom header ngrok-skip-browser-warning forces a preflight that curl never sends.
+@app.after_request
+def apply_cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, ngrok-skip-browser-warning'
+    return response
+
+
+@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
+@app.route('/<path:path>', methods=['OPTIONS'])
+def cors_preflight(path):
+    return ('', 204)
+
 # --- APUFUNKTIOT ---
 
 def soita_kelloa(toistot):
@@ -183,7 +198,7 @@ def kaynnistyssekvenssi():
 @app.route('/servo', methods=['POST'])
 def servo_control():
     # Lukee Odoon datan ja päättää lyöntien määrän
-    data = request.json
+    data = request.get_json(silent=True)
     summa = 0
     if data and 'amount_untaxed' in data:
         summa = data['amount_untaxed']
@@ -206,8 +221,8 @@ def piezo_control():
     # Ensisijaisesti URL-parametrista: .../piezo?sound=coin
     sound_type = request.args.get('sound')
     
-    # Varalta JSONista
-    data = request.json
+    # Varalta JSONista (silent: älä 415 jos Content-Type ei ole JSON)
+    data = request.get_json(silent=True)
     if not sound_type and data and 'sound' in data:
         sound_type = data['sound']
     
@@ -221,7 +236,7 @@ def display_control():
     # Viesti URL-parametrista: .../display?msg=Teksti
     message = request.args.get('msg')
     
-    data = request.json
+    data = request.get_json(silent=True)
     amount = None
     
     # Jos ei URL-viestiä, katsotaan Odoon dataa
