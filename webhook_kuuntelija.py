@@ -13,9 +13,22 @@ THISISFINE_PIN = 23
 SERVO_FREQ = 50
 THISISFINE_PULSE_S = 0.4 
 
-# --- KALIBROINTI (Testattu toimivaksi) ---
-LEPO_ASENTO = 50000   # Ylhäällä
-ISKU_ASENTO = 100000  # Alhaalla (lyönti)
+# --- KALIBROINTI (asteet → pigpio duty 0–1_000_000 @ 50Hz) ---
+SERVO_MIN_DUTY = 50000   # home / 0° (entinen LEPO)
+SERVO_MAX_DUTY = 100000  # full strike (entinen ISKU)
+SERVO_MIN_DEG = 0
+SERVO_MAX_DEG = 90
+REST_DEG = 0
+STRIKE_DEG = 90
+SOFT_STRIKE_DEG = 55
+
+def deg_to_duty(deg):
+    deg = max(SERVO_MIN_DEG, min(SERVO_MAX_DEG, float(deg)))
+    t = (deg - SERVO_MIN_DEG) / (SERVO_MAX_DEG - SERVO_MIN_DEG)
+    return int(SERVO_MIN_DUTY + t * (SERVO_MAX_DUTY - SERVO_MIN_DUTY))
+
+LEPO_ASENTO = deg_to_duty(REST_DEG)
+ISKU_ASENTO = deg_to_duty(STRIKE_DEG)
 
 pi = pigpio.pi()
 app = Flask(__name__)
@@ -37,29 +50,64 @@ def cors_preflight(path):
 
 # --- APUFUNKTIOT ---
 
-def soita_kelloa(toistot):
-    """ Liikuttaa servoa lepo- ja iskuasentojen välillä """
-    
-    # LIIKENOPEUS: 0.3s antaa servolle aikaa tehdä laaja liike
-    sleep_time = 0.3
-    
-    print(f"[SERVO] Lyödään {toistot} kertaa...")
-    
-    for _ in range(toistot):
-        # 1. Isku (Alas)
-        pi.hardware_PWM(SERVO_PIN, SERVO_FREQ, ISKU_ASENTO) 
-        time.sleep(sleep_time)
-        
-        # 2. Palautus (Ylös)
-        pi.hardware_PWM(SERVO_PIN, SERVO_FREQ, LEPO_ASENTO)
-        time.sleep(sleep_time)
-        
-        # Tauko lyöntien välissä (jotta ehtii palautua ja soida)
-        if toistot > 1:
-            time.sleep(0.5)
-    
-    # Lopuksi rentoutus (virta pois servosta)
+def servo_set(deg, hold_s=0):
+    """ Asettaa servon annettuun kulmaan (asteet). """
+    duty = deg_to_duty(deg)
+    print(f"[SERVO] goto {deg}° (duty={duty})")
+    pi.hardware_PWM(SERVO_PIN, SERVO_FREQ, duty)
+    if hold_s > 0:
+        time.sleep(hold_s)
+
+def servo_relax():
+    """ Katkaisee PWM:n (ei liikuta). """
     pi.hardware_PWM(SERVO_PIN, 0, 0)
+
+def servo_home(relax=True, hold_s=0.3):
+    """ Vie servon 0° (home) -asentoon. """
+    print("[SERVO] Home → 0°")
+    servo_set(REST_DEG, hold_s=hold_s)
+    if relax:
+        servo_relax()
+
+def _parse_relax_flag(default=True):
+    """ ?relax=0 pitää PWM:n päällä; muuten rentoutetaan. """
+    raw = request.args.get('relax')
+    data = request.get_json(silent=True) or {}
+    if raw is None and isinstance(data, dict) and 'relax' in data:
+        raw = data.get('relax')
+    if raw is None:
+        return default
+    return str(raw).lower() not in ('0', 'false', 'no', 'off')
+
+def soita_kelloa(toistot, style='hard'):
+    """ Lyö kelloa; style: hard|soft|double|linger. Päättyy aina homeen. """
+    style = (style or 'hard').lower()
+    if style not in ('hard', 'soft', 'double', 'linger'):
+        style = 'hard'
+    toistot = max(1, int(toistot))
+    print(f"[SERVO] Lyödään {toistot}x style={style}")
+
+    for i in range(toistot):
+        if style == 'hard':
+            servo_set(STRIKE_DEG, hold_s=0.3)
+            servo_set(REST_DEG, hold_s=0.3)
+        elif style == 'soft':
+            servo_set(SOFT_STRIKE_DEG, hold_s=0.45)
+            servo_set(REST_DEG, hold_s=0.45)
+        elif style == 'double':
+            for _ in range(2):
+                servo_set(STRIKE_DEG, hold_s=0.12)
+                servo_set(REST_DEG, hold_s=0.12)
+            time.sleep(0.15)
+        elif style == 'linger':
+            servo_set(STRIKE_DEG, hold_s=0.25)
+            time.sleep(0.25)
+            servo_set(REST_DEG, hold_s=0.35)
+
+        if toistot > 1 and i < toistot - 1:
+            time.sleep(0.5)
+
+    servo_home(relax=True, hold_s=0.3)
 
 def soita_melodia(tyyppi):
     """ Soittaa ääniä piezolla """
@@ -247,7 +295,8 @@ def laukaise_thisisfine():
 
 def kaynnistyssekvenssi():
     """ Soittaa valmiussignaalin kun palvelu on käynnissä """
-    print("[BOOT] Käynnistyssekvenssi: gong + thisisfine + piezo")
+    print("[BOOT] Käynnistyssekvenssi: home → gong + thisisfine + piezo")
+    servo_home(relax=True, hold_s=0.4)
     soita_kelloa(1)
     time.sleep(0.3)
     laukaise_thisisfine()
@@ -256,6 +305,12 @@ def kaynnistyssekvenssi():
 
 # --- REITIT (ENDPOINTS) ---
 
+def _servo_style_from_request(data=None):
+    style = request.args.get('style')
+    if not style and data and 'style' in data:
+        style = data['style']
+    return style or 'hard'
+
 @app.route('/servo', methods=['POST'])
 def servo_control():
     # Lukee Odoon datan ja päättää lyöntien määrän
@@ -263,19 +318,57 @@ def servo_control():
     summa = 0
     if data and 'amount_untaxed' in data:
         summa = data['amount_untaxed']
-    
-    print(f"[SERVO] Kauppa: {summa} eur")
-    
-    viesti = ""
+
+    style = _servo_style_from_request(data)
+    print(f"[SERVO] Kauppa: {summa} eur style={style}")
+
     if summa < 20000:
         toistot = 1
     else:
         toistot = int(summa // 10000)
-    
-    soita_kelloa(toistot)
-    viesti = f"Kauppa vahvistettu ({toistot}x)"
-        
+
+    soita_kelloa(toistot, style=style)
+    viesti = f"Kauppa vahvistettu ({toistot}x, {style})"
     return f"Servo: {viesti}", 200
+
+@app.route('/servo/home', methods=['POST'])
+def servo_home_control():
+    request.get_json(silent=True)
+    relax = _parse_relax_flag(default=True)
+    servo_home(relax=relax, hold_s=0.5)
+    return f"Servo: home 0° (relax={relax})", 200
+
+@app.route('/servo/goto', methods=['POST'])
+def servo_goto_control():
+    data = request.get_json(silent=True) or {}
+    raw = request.args.get('deg')
+    if raw is None and 'deg' in data:
+        raw = data['deg']
+    if raw is None:
+        return "Servo: missing deg", 400
+    try:
+        deg = float(raw)
+    except (TypeError, ValueError):
+        return "Servo: invalid deg", 400
+    relax = _parse_relax_flag(default=True)
+    servo_set(deg, hold_s=0.5)
+    if relax:
+        servo_relax()
+    return f"Servo: goto {deg}° (relax={relax})", 200
+
+@app.route('/servo/strike', methods=['POST'])
+def servo_strike_control():
+    data = request.get_json(silent=True) or {}
+    raw_hits = request.args.get('hits')
+    if raw_hits is None and 'hits' in data:
+        raw_hits = data['hits']
+    try:
+        hits = int(raw_hits) if raw_hits is not None else 1
+    except (TypeError, ValueError):
+        return "Servo: invalid hits", 400
+    style = _servo_style_from_request(data)
+    soita_kelloa(hits, style=style)
+    return f"Servo: strike {hits}x style={style}", 200
 
 @app.route('/piezo', methods=['POST'])
 def piezo_control():
@@ -314,11 +407,12 @@ def display_control():
 
 @app.route('/reset', methods=['POST'])
 def reset_servo():
-    print("Komento: Servo nolla-asentoon")
-    pi.hardware_PWM(SERVO_PIN, SERVO_FREQ, LEPO_ASENTO)
-    time.sleep(1.0) 
-    pi.hardware_PWM(SERVO_PIN, 0, 0)
-    return "Servo nollattu", 200
+    """ Alias → /servo/home """
+    request.get_json(silent=True)
+    relax = _parse_relax_flag(default=True)
+    print("Komento: Servo nolla-asentoon (home)")
+    servo_home(relax=relax, hold_s=0.5)
+    return f"Servo nollattu (home 0°, relax={relax})", 200
 
 @app.route('/thisisfine', methods=['POST'])
 def thisisfine_control():

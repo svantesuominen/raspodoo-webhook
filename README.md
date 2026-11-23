@@ -46,10 +46,13 @@ A lightweight Flask server listening on **port 5000**. It features several key e
 
 | Endpoint | Trigger Event | Logic / Action |
 | :--- | :--- | :--- |
-| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€ (e.g., 35k€ = 3 Rings) |
+| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€ (e.g., 35k€ = 3 Rings). Optional `?style=hard\|soft\|double\|linger`. Always returns to 0° home. |
+| `/servo/home` | Maintenance | Move to 0° (home). `?relax=0` keeps PWM on for calibration. |
+| `/servo/goto?deg=N` | Calibration | Absolute angle 0–90°. Default relax after hold; `?relax=0` holds. |
+| `/servo/strike` | Manual test | `?hits=N&style=hard` — strike without Odoo amount math. |
 | `/piezo` | Invoices / Payments | Plays sounds based on `?sound=` parameter: <br>`coin`, `success`, `r2d2`, `alert`, `startup`, `birthday`, `startreck`, `imperial`, `jingle`, `maamme`, `finlandia`. |
 | `/display`| Generic Events | Logs messages to the terminal (OLED support coming soon). |
-| `/reset` | Maintenance | Forces the servo to the "Zero" (rest) position. |
+| `/reset` | Maintenance | Alias of `/servo/home` (0° then relax). |
 | `/thisisfine` | Chaos / memes | Pulses GPIO 23 HIGH for ~0.4s to trigger the This Is Fine dog. |
 
 ### C. Ngrok Connectivity
@@ -121,5 +124,21 @@ pigs w 23 1 && sleep 0.4 && pigs w 23 0
 # This Is Fine
 curl -X POST "https://your-ngrok-url/thisisfine" \
   -H "Content-Type: application/json" -d '{}'
+
+# Servo: home to 0°
+curl -X POST "https://your-ngrok-url/servo/home" \
+  -H "Content-Type: application/json" -d '{}'
+
+# Servo: calibrate to 45° and hold PWM
+curl -X POST "https://your-ngrok-url/servo/goto?deg=45&relax=0" \
+  -H "Content-Type: application/json" -d '{}'
+
+# Servo: soft strike
+curl -X POST "https://your-ngrok-url/servo/strike?hits=1&style=soft" \
+  -H "Content-Type: application/json" -d '{}'
+
+# Servo: Odoo-style with linger
+curl -X POST "https://your-ngrok-url/servo?style=linger" \
+  -H "Content-Type: application/json" -d '{"amount_untaxed": 5000}'
 ```
 
