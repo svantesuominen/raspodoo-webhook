@@ -75,20 +75,20 @@ def servo_park():
     print("[SERVO] Park → PWM off (gravity hang)")
     servo_relax()
 
-def servo_home(relax=True, hold_s=0.25):
-    """ Unstick: aja midiin, sitten PWM off → gravity hang. ?relax=0 pitää midissä. """
+def servo_home(relax=False, hold_s=0.25):
+    """ Vie midiin (~45°). Oletus: PWM päälle (ei tipu 170°). ?relax=1 → PWM off. """
     print(f"[SERVO] Home → mid {REST_DEG}° (relax={relax})")
     servo_set(REST_DEG, hold_s=hold_s)
     if relax:
         servo_park()
 
 def _lyo_kerta(strike_deg, strike_hold_s, windup=True):
-    """ Kaksivaihe: mid → strike → mid → PWM off. """
+    """ Kaksivaihe: mid → strike → mid, PWM jää päälle (ei valu 170°). """
     if windup:
         servo_set(REST_DEG, hold_s=WINDUP_HOLD_S)
     servo_set(strike_deg, hold_s=strike_hold_s)
     servo_set(REST_DEG, hold_s=RETURN_HOLD_S)
-    servo_park()
+    # Idle = powered mid. PWM off tiputtaisi hangiin ~160–170°.
 
 def _parse_relax_flag(default=True):
     """ ?relax=0 pitää PWM:n päällä; muuten rentoutetaan. """
@@ -122,7 +122,6 @@ def soita_kelloa(toistot, style='hard'):
             servo_set(STRIKE_DEG, hold_s=STRIKE_HOLD_S)
             time.sleep(0.25)
             servo_set(REST_DEG, hold_s=RETURN_HOLD_S)
-            servo_park()
 
         if toistot > 1 and i < toistot - 1:
             time.sleep(0.5)
@@ -313,8 +312,8 @@ def laukaise_thisisfine():
 
 def kaynnistyssekvenssi():
     """ Soittaa valmiussignaalin kun palvelu on käynnissä (ei gongia). """
-    print("[BOOT] Käynnistyssekvenssi: relax → thisisfine + piezo")
-    servo_relax()
+    print("[BOOT] Käynnistyssekvenssi: mid hold → thisisfine + piezo")
+    servo_home(relax=False, hold_s=0.35)  # idle mid, ei tipu 170°
     time.sleep(0.2)
     laukaise_thisisfine()
     time.sleep(0.3)
@@ -351,12 +350,10 @@ def servo_control():
 @app.route('/servo/home', methods=['POST'])
 def servo_home_control():
     request.get_json(silent=True)
-    relax = _parse_relax_flag(default=True)
-    if relax:
-        servo_park()
-    else:
-        servo_home(relax=False, hold_s=0.5)
-    return f"Servo: hang {REST_DEG}° (relax={relax})", 200
+    # Default: hold mid under power (no 170° drop). ?relax=1 for PWM off.
+    relax = _parse_relax_flag(default=False)
+    servo_home(relax=relax, hold_s=0.5)
+    return f"Servo: mid {REST_DEG}° (relax={relax})", 200
 
 @app.route('/servo/goto', methods=['POST'])
 def servo_goto_control():
@@ -427,15 +424,12 @@ def display_control():
 
 @app.route('/reset', methods=['POST'])
 def reset_servo():
-    """ Alias → /servo/home (gravity hang + relax) """
+    """ Alias → /servo/home (mid hold; ?relax=1 tiputtaa hangiin) """
     request.get_json(silent=True)
-    relax = _parse_relax_flag(default=True)
-    print("Komento: Servo hang-asentoon (park)")
-    if relax:
-        servo_park()
-    else:
-        servo_home(relax=False, hold_s=0.5)
-    return f"Servo nollattu (hang {REST_DEG}°, relax={relax})", 200
+    relax = _parse_relax_flag(default=False)
+    print("Komento: Servo mid-asentoon")
+    servo_home(relax=relax, hold_s=0.5)
+    return f"Servo nollattu (mid {REST_DEG}°, relax={relax})", 200
 
 @app.route('/thisisfine', methods=['POST'])
 def thisisfine_control():
