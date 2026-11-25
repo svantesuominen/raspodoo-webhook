@@ -20,10 +20,15 @@ SERVO_MIN_DUTY = 50000   # sweep low end (entinen LEPO)
 SERVO_MAX_DUTY = 100000  # sweep high end / full strike (entinen ISKU)
 SERVO_MIN_DEG = 0
 SERVO_MAX_DEG = 90
-# 45° parked ON the gong (vertical). Hang is the angled drop toward 0°.
-REST_DEG = 0             # gravity hang end (calibrate with /servo/goto if needed)
+# Soft 0° ≈ mid (~45° physical). Full hang = PWM off. Soft 90° = gong.
+REST_DEG = 0             # wind-up / return mid (not full gravity hang)
 STRIKE_DEG = 90          # gong hit
-SOFT_STRIKE_DEG = 55     # between hang and strike
+SOFT_STRIKE_DEG = 55
+WINDUP_HOLD_S = 0.30
+STRIKE_HOLD_S = 0.55
+RETURN_HOLD_S = 0.25
+SOFT_STRIKE_HOLD_S = 0.40
+DOUBLE_STRIKE_HOLD_S = 0.22
 
 def deg_to_duty(deg):
     deg = max(SERVO_MIN_DEG, min(SERVO_MAX_DEG, float(deg)))
@@ -70,14 +75,20 @@ def servo_park():
     print("[SERVO] Park → PWM off (gravity hang)")
     servo_relax()
 
-def servo_home(relax=True, hold_s=0.18):
-    """ Home = gravity hang. Idleissä vain PWM pois; ?relax=0 pitää REST_DEG:n kalibrointiin. """
+def servo_home(relax=True, hold_s=0.25):
+    """ Unstick: aja midiin, sitten PWM off → gravity hang. ?relax=0 pitää midissä. """
+    print(f"[SERVO] Home → mid {REST_DEG}° (relax={relax})")
+    servo_set(REST_DEG, hold_s=hold_s)
     if relax:
-        print(f"[SERVO] Home → gravity hang (PWM off)")
         servo_park()
-    else:
-        print(f"[SERVO] Home hold → {REST_DEG}° (calibration)")
-        servo_set(REST_DEG, hold_s=hold_s)
+
+def _lyo_kerta(strike_deg, strike_hold_s, windup=True):
+    """ Kaksivaihe: mid → strike → mid → PWM off. """
+    if windup:
+        servo_set(REST_DEG, hold_s=WINDUP_HOLD_S)
+    servo_set(strike_deg, hold_s=strike_hold_s)
+    servo_set(REST_DEG, hold_s=RETURN_HOLD_S)
+    servo_park()
 
 def _parse_relax_flag(default=True):
     """ ?relax=0 pitää PWM:n päällä; muuten rentoutetaan. """
@@ -90,7 +101,7 @@ def _parse_relax_flag(default=True):
     return str(raw).lower() not in ('0', 'false', 'no', 'off')
 
 def soita_kelloa(toistot, style='hard'):
-    """ Lyö kelloa; style: hard|soft|double|linger. Jokaisen lyönnin jälkeen park (hang+PWM off). """
+    """ Lyö kelloa; style: hard|soft|double|linger. Kaksivaihe + park. """
     style = (style or 'hard').lower()
     if style not in ('hard', 'soft', 'double', 'linger'):
         style = 'hard'
@@ -99,19 +110,18 @@ def soita_kelloa(toistot, style='hard'):
 
     for i in range(toistot):
         if style == 'hard':
-            servo_set(STRIKE_DEG, hold_s=0.3)
-            servo_park()
+            _lyo_kerta(STRIKE_DEG, STRIKE_HOLD_S, windup=True)
         elif style == 'soft':
-            servo_set(SOFT_STRIKE_DEG, hold_s=0.45)
-            servo_park()
+            _lyo_kerta(SOFT_STRIKE_DEG, SOFT_STRIKE_HOLD_S, windup=True)
         elif style == 'double':
             for _ in range(2):
-                servo_set(STRIKE_DEG, hold_s=0.12)
-                servo_park()
+                _lyo_kerta(STRIKE_DEG, DOUBLE_STRIKE_HOLD_S, windup=True)
             time.sleep(0.15)
         elif style == 'linger':
-            servo_set(STRIKE_DEG, hold_s=0.25)
+            servo_set(REST_DEG, hold_s=WINDUP_HOLD_S)
+            servo_set(STRIKE_DEG, hold_s=STRIKE_HOLD_S)
             time.sleep(0.25)
+            servo_set(REST_DEG, hold_s=RETURN_HOLD_S)
             servo_park()
 
         if toistot > 1 and i < toistot - 1:

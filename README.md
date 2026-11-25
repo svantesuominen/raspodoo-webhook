@@ -46,8 +46,8 @@ A lightweight Flask server listening on **port 5000**. It features several key e
 
 | Endpoint | Trigger Event | Logic / Action |
 | :--- | :--- | :--- |
-| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€. Optional `?style=hard\|soft\|double\|linger`. After each hit: drive to gravity hang + PWM off. |
-| `/servo/home` | Maintenance | Park at gravity hang (`REST_DEG`), then cut PWM. `?relax=0` holds under power (calibration only). |
+| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€. Optional `?style=hard\|soft\|double\|linger`. Each hit: wind-up mid → strike 90° → mid → PWM off. |
+| `/servo/home` | Maintenance | Pull to mid (`REST_DEG`), then PWM off (unstick + gravity hang). `?relax=0` holds mid. |
 | `/servo/goto?deg=N` | Calibration | Absolute angle 0–90°. Default relax after hold; `?relax=0` holds while you match the hang photo. |
 | `/servo/strike` | Manual test | `?hits=N&style=hard` — strike without Odoo amount math. |
 | `/piezo` | Invoices / Payments | Plays sounds based on `?sound=` parameter: <br>`coin`, `success`, `r2d2`, `alert`, `startup`, `birthday`, `startreck`, `imperial`, `jingle`, `maamme`, `finlandia`. |
@@ -119,9 +119,9 @@ pigs hp 13 1000 500000 && sleep 0.2 && pigs hp 13 0 0
 pigs w 23 1 && sleep 0.4 && pigs w 23 0
 ```
 
-### Servo rest = gravity hang
+### Servo strike = two-phase
 
-Idle position is the natural hanging mallet angle (`REST_DEG`, default **0** — away from the gong). Mid angles (~45°) sit on the gong; do not use those as rest. After every strike the servo drives to hang and cuts PWM. Tune `REST_DEG` with `/servo/goto?relax=0` if 0 is slightly off.
+Soft `0°` is wind-up mid (~45° physical). Soft `90°` hits the gong. Full hang is PWM off (gravity). Each hard hit: mid → 90° → mid → PWM off. If stuck up, `/servo/home` pulls to mid then cuts PWM.
 
 ### Webhook smoke tests
 ```bash
