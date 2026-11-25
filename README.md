@@ -46,7 +46,7 @@ A lightweight Flask server listening on **port 5000**. It features several key e
 
 | Endpoint | Trigger Event | Logic / Action |
 | :--- | :--- | :--- |
-| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€. Optional `?style=hard\|soft\|double\|linger`. Each hit: wind-up mid → strike 90° → hold mid (PWM on). |
+| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€. Optional `?style=hard\|soft\|double\|linger`. Each hit: wind-up mid → strike 70° → hold mid (PWM on). |
 | `/servo/home` | Maintenance | Hold mid (`REST_DEG`) under power. `?relax=1` cuts PWM (drops to full hang). |
 | `/servo/goto?deg=N` | Calibration | Absolute angle 0–90°. Default relax after hold; `?relax=0` holds while you match the hang photo. |
 | `/servo/strike` | Manual test | `?hits=N&style=hard` — strike without Odoo amount math. |
@@ -121,7 +121,7 @@ pigs w 23 1 && sleep 0.4 && pigs w 23 0
 
 ### Servo strike = two-phase
 
-Soft `0°` is idle mid (~45° physical, PWM held). Soft `90°` hits the gong. Each hard hit: mid → 90° → mid (stays; no 160–170° drop). Full gravity hang only if you explicitly `?relax=1` / PWM off.
+Soft `0°` is idle mid (~45° physical, PWM held). Soft `70°` hits the gong. Each hard hit: mid → 70° → mid (stays; no 160–170° drop). Full gravity hang only if you explicitly `?relax=1` / PWM off.
 
 ### Webhook smoke tests
 ```bash

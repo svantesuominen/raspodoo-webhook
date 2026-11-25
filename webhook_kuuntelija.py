@@ -22,8 +22,8 @@ SERVO_MIN_DEG = 0
 SERVO_MAX_DEG = 90
 # Soft 0° ≈ mid (~45° physical). Full hang = PWM off. Soft 90° = gong.
 REST_DEG = 0             # wind-up / return mid (not full gravity hang)
-STRIKE_DEG = 90          # gong hit
-SOFT_STRIKE_DEG = 55
+STRIKE_DEG = 70          # gong hit (kalibroitu; 90/85/80 oli yli)
+SOFT_STRIKE_DEG = 50     # between mid and strike
 WINDUP_HOLD_S = 0.30
 STRIKE_HOLD_S = 0.55
 RETURN_HOLD_S = 0.25
