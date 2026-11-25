@@ -14,13 +14,15 @@ SERVO_FREQ = 50
 THISISFINE_PULSE_S = 0.4 
 
 # --- KALIBROINTI (asteet → pigpio duty 0–1_000_000 @ 50Hz) ---
-SERVO_MIN_DUTY = 50000   # home / 0° (entinen LEPO)
-SERVO_MAX_DUTY = 100000  # full strike (entinen ISKU)
+# REST = painovoiman ripustusasento (PWM pois idleissä).
+# STRIKE = gongin lyöntikulma. Hienosäädä REST_DEG /servo/goto?deg=N&relax=0 -lla.
+SERVO_MIN_DUTY = 50000   # sweep low end (entinen LEPO)
+SERVO_MAX_DUTY = 100000  # sweep high end / full strike (entinen ISKU)
 SERVO_MIN_DEG = 0
 SERVO_MAX_DEG = 90
-REST_DEG = 0
-STRIKE_DEG = 90
-SOFT_STRIKE_DEG = 55
+REST_DEG = 45            # gravity hang (first-guess; calibrate if needed)
+STRIKE_DEG = 90          # gong hit
+SOFT_STRIKE_DEG = 68     # midway hang → strike
 
 def deg_to_duty(deg):
     deg = max(SERVO_MIN_DEG, min(SERVO_MAX_DEG, float(deg)))
@@ -62,9 +64,15 @@ def servo_relax():
     """ Katkaisee PWM:n (ei liikuta). """
     pi.hardware_PWM(SERVO_PIN, 0, 0)
 
-def servo_home(relax=True, hold_s=0.3):
-    """ Vie servon 0° (home) -asentoon. """
-    print("[SERVO] Home → 0°")
+def servo_park():
+    """ Vie servon painovoima-asentoon ja katkaisee PWM:n (ei jarruta). """
+    print(f"[SERVO] Park → hang {REST_DEG}° + relax")
+    servo_set(REST_DEG, hold_s=0.18)
+    servo_relax()
+
+def servo_home(relax=True, hold_s=0.18):
+    """ Home = gravity hang. Idleissä PWM pois; ?relax=0 vain kalibrointiin. """
+    print(f"[SERVO] Home → hang {REST_DEG}° (relax={relax})")
     servo_set(REST_DEG, hold_s=hold_s)
     if relax:
         servo_relax()
@@ -80,7 +88,7 @@ def _parse_relax_flag(default=True):
     return str(raw).lower() not in ('0', 'false', 'no', 'off')
 
 def soita_kelloa(toistot, style='hard'):
-    """ Lyö kelloa; style: hard|soft|double|linger. Päättyy aina homeen. """
+    """ Lyö kelloa; style: hard|soft|double|linger. Jokaisen lyönnin jälkeen park (hang+PWM off). """
     style = (style or 'hard').lower()
     if style not in ('hard', 'soft', 'double', 'linger'):
         style = 'hard'
@@ -90,24 +98,22 @@ def soita_kelloa(toistot, style='hard'):
     for i in range(toistot):
         if style == 'hard':
             servo_set(STRIKE_DEG, hold_s=0.3)
-            servo_set(REST_DEG, hold_s=0.3)
+            servo_park()
         elif style == 'soft':
             servo_set(SOFT_STRIKE_DEG, hold_s=0.45)
-            servo_set(REST_DEG, hold_s=0.45)
+            servo_park()
         elif style == 'double':
             for _ in range(2):
                 servo_set(STRIKE_DEG, hold_s=0.12)
-                servo_set(REST_DEG, hold_s=0.12)
+                servo_park()
             time.sleep(0.15)
         elif style == 'linger':
             servo_set(STRIKE_DEG, hold_s=0.25)
             time.sleep(0.25)
-            servo_set(REST_DEG, hold_s=0.35)
+            servo_park()
 
         if toistot > 1 and i < toistot - 1:
             time.sleep(0.5)
-
-    servo_home(relax=True, hold_s=0.3)
 
 def soita_melodia(tyyppi):
     """ Soittaa ääniä piezolla """
@@ -295,8 +301,8 @@ def laukaise_thisisfine():
 
 def kaynnistyssekvenssi():
     """ Soittaa valmiussignaalin kun palvelu on käynnissä """
-    print("[BOOT] Käynnistyssekvenssi: home → gong + thisisfine + piezo")
-    servo_home(relax=True, hold_s=0.4)
+    print("[BOOT] Käynnistyssekvenssi: park → gong + thisisfine + piezo")
+    servo_park()
     soita_kelloa(1)
     time.sleep(0.3)
     laukaise_thisisfine()
@@ -335,8 +341,11 @@ def servo_control():
 def servo_home_control():
     request.get_json(silent=True)
     relax = _parse_relax_flag(default=True)
-    servo_home(relax=relax, hold_s=0.5)
-    return f"Servo: home 0° (relax={relax})", 200
+    if relax:
+        servo_park()
+    else:
+        servo_home(relax=False, hold_s=0.5)
+    return f"Servo: hang {REST_DEG}° (relax={relax})", 200
 
 @app.route('/servo/goto', methods=['POST'])
 def servo_goto_control():
@@ -407,12 +416,15 @@ def display_control():
 
 @app.route('/reset', methods=['POST'])
 def reset_servo():
-    """ Alias → /servo/home """
+    """ Alias → /servo/home (gravity hang + relax) """
     request.get_json(silent=True)
     relax = _parse_relax_flag(default=True)
-    print("Komento: Servo nolla-asentoon (home)")
-    servo_home(relax=relax, hold_s=0.5)
-    return f"Servo nollattu (home 0°, relax={relax})", 200
+    print("Komento: Servo hang-asentoon (park)")
+    if relax:
+        servo_park()
+    else:
+        servo_home(relax=False, hold_s=0.5)
+    return f"Servo nollattu (hang {REST_DEG}°, relax={relax})", 200
 
 @app.route('/thisisfine', methods=['POST'])
 def thisisfine_control():

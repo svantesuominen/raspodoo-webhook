@@ -46,13 +46,13 @@ A lightweight Flask server listening on **port 5000**. It features several key e
 
 | Endpoint | Trigger Event | Logic / Action |
 | :--- | :--- | :--- |
-| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€ (e.g., 35k€ = 3 Rings). Optional `?style=hard\|soft\|double\|linger`. Always returns to 0° home. |
-| `/servo/home` | Maintenance | Move to 0° (home). `?relax=0` keeps PWM on for calibration. |
-| `/servo/goto?deg=N` | Calibration | Absolute angle 0–90°. Default relax after hold; `?relax=0` holds. |
+| `/servo` | Sales Order Confirmed | Parses `amount_untaxed`. <br>• < 20k€: 1 Ring <br>• ≥ 20k€: 1 Ring per 10k€. Optional `?style=hard\|soft\|double\|linger`. After each hit: drive to gravity hang + PWM off. |
+| `/servo/home` | Maintenance | Park at gravity hang (`REST_DEG`), then cut PWM. `?relax=0` holds under power (calibration only). |
+| `/servo/goto?deg=N` | Calibration | Absolute angle 0–90°. Default relax after hold; `?relax=0` holds while you match the hang photo. |
 | `/servo/strike` | Manual test | `?hits=N&style=hard` — strike without Odoo amount math. |
 | `/piezo` | Invoices / Payments | Plays sounds based on `?sound=` parameter: <br>`coin`, `success`, `r2d2`, `alert`, `startup`, `birthday`, `startreck`, `imperial`, `jingle`, `maamme`, `finlandia`. |
 | `/display`| Generic Events | Logs messages to the terminal (OLED support coming soon). |
-| `/reset` | Maintenance | Alias of `/servo/home` (0° then relax). |
+| `/reset` | Maintenance | Alias of `/servo/home` (hang + PWM off). |
 | `/thisisfine` | Chaos / memes | Pulses GPIO 23 HIGH for ~0.4s to trigger the This Is Fine dog. |
 
 ### C. Ngrok Connectivity
@@ -119,21 +119,29 @@ pigs hp 13 1000 500000 && sleep 0.2 && pigs hp 13 0 0
 pigs w 23 1 && sleep 0.4 && pigs w 23 0
 ```
 
+### Servo rest = gravity hang
+
+Idle position is the natural hanging mallet angle (`REST_DEG`, default 45). After every strike the servo drives there and cuts PWM so it does not fight gravity. Tune `REST_DEG` in code after finding the match with `/servo/goto?relax=0`.
+
 ### Webhook smoke tests
 ```bash
 # This Is Fine
 curl -X POST "https://your-ngrok-url/thisisfine" \
   -H "Content-Type: application/json" -d '{}'
 
-# Servo: home to 0°
+# Servo: park to hang + PWM off
 curl -X POST "https://your-ngrok-url/servo/home" \
   -H "Content-Type: application/json" -d '{}'
 
-# Servo: calibrate to 45° and hold PWM
-curl -X POST "https://your-ngrok-url/servo/goto?deg=45&relax=0" \
+# Calibrate hang: hold angles until it matches the photo, then set REST_DEG
+curl -X POST "https://your-ngrok-url/servo/goto?deg=20&relax=0" \
+  -H "Content-Type: application/json" -d '{}'
+curl -X POST "https://your-ngrok-url/servo/goto?deg=40&relax=0" \
+  -H "Content-Type: application/json" -d '{}'
+curl -X POST "https://your-ngrok-url/servo/goto?deg=60&relax=0" \
   -H "Content-Type: application/json" -d '{}'
 
-# Servo: soft strike
+# Servo: soft strike (ends in hang + relax)
 curl -X POST "https://your-ngrok-url/servo/strike?hits=1&style=soft" \
   -H "Content-Type: application/json" -d '{}'
 
