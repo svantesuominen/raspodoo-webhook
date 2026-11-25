@@ -66,17 +66,18 @@ def servo_relax():
     pi.hardware_PWM(SERVO_PIN, 0, 0)
 
 def servo_park():
-    """ Vie servon painovoima-asentoon ja katkaisee PWM:n (ei jarruta). """
-    print(f"[SERVO] Park → hang {REST_DEG}° + relax")
-    servo_set(REST_DEG, hold_s=0.18)
+    """ Idle = PWM pois; kapula tippuu painovoimalla hangiin (ei jarruta). """
+    print("[SERVO] Park → PWM off (gravity hang)")
     servo_relax()
 
 def servo_home(relax=True, hold_s=0.18):
-    """ Home = gravity hang. Idleissä PWM pois; ?relax=0 vain kalibrointiin. """
-    print(f"[SERVO] Home → hang {REST_DEG}° (relax={relax})")
-    servo_set(REST_DEG, hold_s=hold_s)
+    """ Home = gravity hang. Idleissä vain PWM pois; ?relax=0 pitää REST_DEG:n kalibrointiin. """
     if relax:
-        servo_relax()
+        print(f"[SERVO] Home → gravity hang (PWM off)")
+        servo_park()
+    else:
+        print(f"[SERVO] Home hold → {REST_DEG}° (calibration)")
+        servo_set(REST_DEG, hold_s=hold_s)
 
 def _parse_relax_flag(default=True):
     """ ?relax=0 pitää PWM:n päällä; muuten rentoutetaan. """
@@ -302,8 +303,9 @@ def laukaise_thisisfine():
 
 def kaynnistyssekvenssi():
     """ Soittaa valmiussignaalin kun palvelu on käynnissä """
-    print("[BOOT] Käynnistyssekvenssi: park → gong + thisisfine + piezo")
-    servo_park()
+    # Älä aja powered parkia bootissa: kapula on jo hangissa → jarrutusääni.
+    print("[BOOT] Käynnistyssekvenssi: relax → gong + thisisfine + piezo")
+    servo_relax()
     soita_kelloa(1)
     time.sleep(0.3)
     laukaise_thisisfine()
