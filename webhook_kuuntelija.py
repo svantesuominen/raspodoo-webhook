@@ -312,12 +312,10 @@ def laukaise_thisisfine():
     pi.write(THISISFINE_PIN, 0)
 
 def kaynnistyssekvenssi():
-    """ Soittaa valmiussignaalin kun palvelu on käynnissä """
-    # Älä aja powered parkia bootissa: kapula on jo hangissa → jarrutusääni.
-    print("[BOOT] Käynnistyssekvenssi: relax → gong + thisisfine + piezo")
+    """ Soittaa valmiussignaalin kun palvelu on käynnissä (ei gongia). """
+    print("[BOOT] Käynnistyssekvenssi: relax → thisisfine + piezo")
     servo_relax()
-    soita_kelloa(1)
-    time.sleep(0.3)
+    time.sleep(0.2)
     laukaise_thisisfine()
     time.sleep(0.3)
     soita_melodia('startup')
