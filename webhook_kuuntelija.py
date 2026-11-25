@@ -20,9 +20,10 @@ SERVO_MIN_DUTY = 50000   # sweep low end (entinen LEPO)
 SERVO_MAX_DUTY = 100000  # sweep high end / full strike (entinen ISKU)
 SERVO_MIN_DEG = 0
 SERVO_MAX_DEG = 90
-REST_DEG = 45            # gravity hang (first-guess; calibrate if needed)
+# 45° parked ON the gong (vertical). Hang is the angled drop toward 0°.
+REST_DEG = 0             # gravity hang end (calibrate with /servo/goto if needed)
 STRIKE_DEG = 90          # gong hit
-SOFT_STRIKE_DEG = 68     # midway hang → strike
+SOFT_STRIKE_DEG = 55     # between hang and strike
 
 def deg_to_duty(deg):
     deg = max(SERVO_MIN_DEG, min(SERVO_MAX_DEG, float(deg)))

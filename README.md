@@ -121,7 +121,7 @@ pigs w 23 1 && sleep 0.4 && pigs w 23 0
 
 ### Servo rest = gravity hang
 
-Idle position is the natural hanging mallet angle (`REST_DEG`, default 45). After every strike the servo drives there and cuts PWM so it does not fight gravity. Tune `REST_DEG` in code after finding the match with `/servo/goto?relax=0`.
+Idle position is the natural hanging mallet angle (`REST_DEG`, default **0** — away from the gong). Mid angles (~45°) sit on the gong; do not use those as rest. After every strike the servo drives to hang and cuts PWM. Tune `REST_DEG` with `/servo/goto?relax=0` if 0 is slightly off.
 
 ### Webhook smoke tests
 ```bash
@@ -133,12 +133,12 @@ curl -X POST "https://your-ngrok-url/thisisfine" \
 curl -X POST "https://your-ngrok-url/servo/home" \
   -H "Content-Type: application/json" -d '{}'
 
-# Calibrate hang: hold angles until it matches the photo, then set REST_DEG
-curl -X POST "https://your-ngrok-url/servo/goto?deg=20&relax=0" \
+# Calibrate: 0 ≈ hang (angled), ~45 ≈ on gong, 90 ≈ strike
+curl -X POST "https://your-ngrok-url/servo/goto?deg=0&relax=0" \
   -H "Content-Type: application/json" -d '{}'
-curl -X POST "https://your-ngrok-url/servo/goto?deg=40&relax=0" \
+curl -X POST "https://your-ngrok-url/servo/goto?deg=45&relax=0" \
   -H "Content-Type: application/json" -d '{}'
-curl -X POST "https://your-ngrok-url/servo/goto?deg=60&relax=0" \
+curl -X POST "https://your-ngrok-url/servo/goto?deg=90&relax=0" \
   -H "Content-Type: application/json" -d '{}'
 
 # Servo: soft strike (ends in hang + relax)
